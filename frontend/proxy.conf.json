@@ -1,0 +1,8 @@
+{
+  "/api/user": { "target": "http://localhost:8001", "secure": false, "pathRewrite": { "^/api/user": "" } },
+  "/api/product": { "target": "http://localhost:8002", "secure": false, "pathRewrite": { "^/api/product": "" } },
+  "/api/inventory": { "target": "http://localhost:8003", "secure": false, "pathRewrite": { "^/api/inventory": "" } },
+  "/api/order": { "target": "http://localhost:8004", "secure": false, "pathRewrite": { "^/api/order": "" } },
+  "/api/payment": { "target": "http://localhost:8005", "secure": false, "pathRewrite": { "^/api/payment": "" } },
+  "/api/notification": { "target": "http://localhost:8006", "secure": false, "pathRewrite": { "^/api/notification": "" } }
+}

@@ -1,0 +1,130 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: market_admin
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set POSTGRES_PASSWORD}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init-databases.sql:/docker-entrypoint-initdb.d/init-databases.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U market_admin -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  user-service:
+    build:
+      context: .
+      args:
+        SERVICE_DIR: user_service
+    environment:
+      DATABASE_URL: postgresql+psycopg://users_service:${POSTGRES_PASSWORD}@postgres:5432/users_db
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+    ports: ["8001:8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  product-service:
+    build:
+      context: .
+      args:
+        SERVICE_DIR: product_service
+    environment:
+      DATABASE_URL: postgresql+psycopg://products_service:${POSTGRES_PASSWORD}@postgres:5432/products_db
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+    ports: ["8002:8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  inventory-service:
+    build:
+      context: .
+      args:
+        SERVICE_DIR: inventory_service
+    environment:
+      DATABASE_URL: postgresql+psycopg://inventory_service:${POSTGRES_PASSWORD}@postgres:5432/inventory_db
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env}
+      PRODUCT_SERVICE_URL: http://product-service:8000
+    ports: ["8003:8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  order-service:
+    build:
+      context: .
+      args:
+        SERVICE_DIR: order_service
+    environment:
+      DATABASE_URL: postgresql+psycopg://orders_service:${POSTGRES_PASSWORD}@postgres:5432/orders_db
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env}
+      PRODUCT_SERVICE_URL: http://product-service:8000
+      INVENTORY_SERVICE_URL: http://inventory-service:8000
+      PAYMENT_SERVICE_URL: http://payment-service:8000
+      NOTIFICATION_SERVICE_URL: http://notification-service:8000
+    ports: ["8004:8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+      inventory-service:
+        condition: service_started
+      payment-service:
+        condition: service_started
+      notification-service:
+        condition: service_started
+
+  payment-service:
+    build:
+      context: .
+      args:
+        SERVICE_DIR: payment_service
+    environment:
+      DATABASE_URL: postgresql+psycopg://payments_service:${POSTGRES_PASSWORD}@postgres:5432/payments_db
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env}
+    ports: ["8005:8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  notification-service:
+    build:
+      context: .
+      args:
+        SERVICE_DIR: notification_service
+    environment:
+      DATABASE_URL: postgresql+psycopg://notifications_service:${POSTGRES_PASSWORD}@postgres:5432/notifications_db
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?Set INTERNAL_API_TOKEN in .env}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+    ports: ["8006:8000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    ports: ["4200:80"]
+    depends_on:
+      - user-service
+      - product-service
+      - inventory-service
+      - order-service
+      - payment-service
+      - notification-service
+
+volumes:
+  postgres_data:

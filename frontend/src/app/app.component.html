@@ -1,0 +1,134 @@
+<header class="topbar">
+  <a class="brand" href="/">market<span>place</span></a>
+  <form class="search" (ngSubmit)="loadProducts()">
+    <input name="search" [(ngModel)]="search" placeholder="Find something good..." aria-label="Search products">
+    <button type="submit" class="search-button">Search</button>
+  </form>
+  <div class="account">
+    <ng-container *ngIf="account; else signedOut">
+      <span class="account-name">{{ account.full_name }} <small>{{ account.role }}</small></span>
+      <button class="text-button" (click)="logout()">Sign out</button>
+    </ng-container>
+    <ng-template #signedOut><a href="#account" class="text-button">Sign in</a></ng-template>
+  </div>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <p class="eyebrow">A marketplace built around people</p>
+      <h1>Good finds.<br><em>Independent sellers.</em></h1>
+      <p class="hero-copy">Discover small-business favourites and have them delivered to your door. Pay only when they arrive.</p>
+      <a class="primary-button" href="#catalog">Explore the market <span aria-hidden="true">↓</span></a>
+    </div>
+    <div class="hero-art" aria-hidden="true"><span class="sun"></span><span class="arch"></span><span class="plant">✳</span><span class="art-label">MADE<br>WITH CARE</span></div>
+  </section>
+
+  <section class="notice error" *ngIf="error" role="alert">{{ error }}</section>
+  <section class="notice success" *ngIf="message" role="status">{{ message }} <button (click)="message = ''">Dismiss</button></section>
+
+  <section id="catalog" class="catalog section">
+    <div class="section-heading">
+      <div><p class="eyebrow">THE COLLECTION</p><h2>Find your next favourite</h2></div>
+      <span class="item-count">{{ products.length }} items</span>
+    </div>
+    <div class="product-grid" *ngIf="products.length; else emptyCatalog">
+      <article class="product-card" *ngFor="let product of products; let i = index">
+        <div class="product-art" [class]="'product-art tone-' + (i % 4)">
+          <span class="product-symbol">{{ ['✳', '◒', '⬡', '✿'][i % 4] }}</span>
+          <span class="product-number">NO. {{ (i + 1).toString().padStart(2, '0') }}</span>
+        </div>
+        <div class="product-info">
+          <div><h3>{{ product.name }}</h3><p>{{ product.description || 'Thoughtfully selected for everyday living.' }}</p></div>
+          <strong>{{ product.price | currency }}</strong>
+        </div>
+        <div class="product-actions" *ngIf="account?.role === 'buyer'">
+          <span class="stock-note">{{ product.quantity }} in stock</span>
+          <button class="outline-button" [disabled]="product.quantity < 1" (click)="addToCart(product)">{{ product.quantity ? 'Add to basket' : 'Sold out' }}</button>
+        </div>
+        <span class="seller-note" *ngIf="account?.role === 'seller'">Seller #{{ product.seller_id }}</span>
+      </article>
+    </div>
+    <ng-template #emptyCatalog><div class="empty-state">No products yet. Sellers can add the first one after signing in.</div></ng-template>
+  </section>
+
+  <section class="account-layout section" id="account">
+    <article class="panel auth-panel" *ngIf="!account">
+      <p class="eyebrow">YOUR MARKET ACCOUNT</p>
+      <h2>Welcome in</h2>
+      <p class="muted">Sign in to place orders, or create an account to start shopping or selling.</p>
+      <form (ngSubmit)="signIn()" class="form-stack">
+        <label>Email<input type="email" name="email" [(ngModel)]="email" autocomplete="email" required></label>
+        <label>Password<input type="password" name="password" [(ngModel)]="password" autocomplete="current-password" required></label>
+        <button class="primary-button full-width" [disabled]="busy">Sign in</button>
+      </form>
+      <div class="divider"><span>NEW TO THE MARKET?</span></div>
+      <form (ngSubmit)="register()" class="form-stack">
+        <label>Your name<input name="fullName" [(ngModel)]="fullName" minlength="2" required></label>
+        <label>Create a password<input type="password" name="newPassword" [(ngModel)]="password" minlength="10" required></label>
+        <label>Account type
+          <select name="registerRole" [(ngModel)]="registerRole"><option value="buyer">Shop as a buyer</option><option value="seller">Open a seller shop</option></select>
+        </label>
+        <button class="outline-button full-width" [disabled]="busy">Create account</button>
+      </form>
+    </article>
+
+    <article class="panel seller-panel" *ngIf="account?.role === 'seller'">
+      <p class="eyebrow">SELLER STUDIO</p>
+      <h2>Bring a good thing to market</h2>
+      <p class="muted">Add a product and register its available stock. You can update prices and listings from the product API.</p>
+      <form (ngSubmit)="createProduct()" class="form-stack">
+        <label>Product name<input name="productName" [(ngModel)]="productName" minlength="2" maxlength="160" required></label>
+        <label>Description<textarea name="productDescription" [(ngModel)]="productDescription" rows="3" maxlength="4000"></textarea></label>
+        <div class="form-row">
+          <label>Price<input type="number" name="productPrice" [(ngModel)]="productPrice" min="0.01" step="0.01" required></label>
+          <label>Initial stock<input type="number" name="initialStock" [(ngModel)]="initialStock" min="0" step="1" required></label>
+        </div>
+        <button class="primary-button full-width" [disabled]="busy">List product</button>
+      </form>
+    </article>
+
+    <article class="panel basket-panel" *ngIf="account?.role === 'buyer'">
+      <p class="eyebrow">YOUR BASKET</p>
+      <h2>Ready when you are</h2>
+      <div class="basket-line" *ngFor="let product of cartItems">
+        <div><strong>{{ product.name }}</strong><small>{{ product.price | currency }} each</small></div>
+        <input type="number" min="0" max="100" [ngModel]="cart[product.id]" (ngModelChange)="setQuantity(product.id, $event)" [name]="'quantity-' + product.id" aria-label="Quantity">
+      </div>
+      <p class="empty-basket" *ngIf="!cartItems.length">Your basket is empty. Add something you love from the collection.</p>
+      <div class="basket-total"><span>Basket total</span><strong>{{ cartTotal | currency }}</strong></div>
+      <form (ngSubmit)="checkout()" class="form-stack">
+        <label>Delivery address<textarea name="deliveryAddress" [(ngModel)]="deliveryAddress" rows="2" minlength="8" placeholder="Street, city, postal code" required></textarea></label>
+        <button class="primary-button full-width" [disabled]="busy || !cartItems.length">Place order · Cash on delivery</button>
+      </form>
+      <p class="fine-print">No online payment required. Pay the delivery person in cash.</p>
+    </article>
+  </section>
+
+  <section class="section orders-section" *ngIf="account">
+    <div class="section-heading"><div><p class="eyebrow">YOUR ACTIVITY</p><h2>{{ account.role === 'seller' ? 'Orders to fulfil' : 'Your orders' }}</h2></div></div>
+    <div class="empty-state" *ngIf="!orders.length">Your orders and updates will appear here.</div>
+    <article class="order-card" *ngFor="let order of orders">
+      <div class="order-title"><div><span class="eyebrow">ORDER #{{ order.id }}</span><h3>{{ order.status | titlecase }}</h3></div><strong>{{ order.total | currency }}</strong></div>
+      <div class="order-items"><span *ngFor="let item of order.items">{{ item.product_name }} × {{ item.quantity }}</span></div>
+      <div class="order-foot"><span>{{ order.created_at | date:'mediumDate' }}</span><span class="cod-label">Cash on delivery · {{ paymentFor(order.id)?.status || 'pending' }}</span></div>
+      <div class="order-actions" *ngIf="account.role === 'seller'">
+        <button class="text-button" *ngIf="order.status === 'placed'" (click)="updateOrderStatus(order, 'processing')">Accept order</button>
+        <button class="text-button" *ngIf="order.status === 'processing'" (click)="updateOrderStatus(order, 'shipped')">Mark shipped</button>
+        <button class="text-button" *ngIf="order.status === 'shipped'" (click)="updateOrderStatus(order, 'delivered')">Mark delivered</button>
+      </div>
+      <div class="order-actions" *ngIf="account.role === 'buyer' && (order.status === 'placed' || order.status === 'processing')">
+        <button class="text-button cancel-button" (click)="updateOrderStatus(order, 'cancelled')">Cancel order</button>
+      </div>
+    </article>
+    <div class="activity-list" *ngIf="notifications.length">
+      <h3>Order updates</h3>
+      <article class="activity-item" *ngFor="let notification of notifications">
+        <div><strong>{{ notification.subject }}</strong><p>{{ notification.message }}</p></div>
+        <small>{{ notification.delivery_status }} · {{ notification.created_at | date:'short' }}</small>
+      </article>
+    </div>
+  </section>
+</main>
+
+<footer><a class="brand" href="/">market<span>place</span></a><span>Independent shops. Considered goods. Pay on delivery.</span></footer>
